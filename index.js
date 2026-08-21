@@ -187,23 +187,23 @@ function updateFlightVisual(travel, altitude, stability, elapsed) {
   }
 }
 
-function getFailureMessage(power, stability) {
+function getChallengeMessage(power, stability) {
   if (power < SUCCESS_THRESHOLD && stability < SUCCESS_THRESHOLD) {
-    return "出力と安定性が基準を下回り、飛行途中で機体が崩壊しました。";
+    return "空いっぱいにカラフルなスパークが広がりました。両方を90%以上にすると軌道到達コースへ進めます。";
   }
 
   if (power < SUCCESS_THRESHOLD) {
-    return "出力不足により上昇を維持できず、飛行途中で機体が崩壊しました。";
+    return "カラフルなスパークを記録しました。出力強度を90%以上にすると軌道到達コースへ進めます。";
   }
 
-  return "姿勢制御が限界を超え、飛行途中で機体が崩壊しました。";
+  return "カラフルなスパークを記録しました。安定性を90%以上にすると軌道到達コースへ進めます。";
 }
 
 function populateResult(snapshot, outcome) {
   elements.resultPower.textContent = snapshot.power;
   elements.resultStability.textContent = snapshot.stability;
   elements.resultAltitude.textContent = formatAltitude(outcome.altitude);
-  elements.resultPanel.classList.toggle("is-failure", !outcome.success);
+  elements.resultPanel.classList.toggle("is-challenge", !outcome.success);
 
   if (outcome.success) {
     elements.resultIcon.textContent = "✓";
@@ -211,10 +211,10 @@ function populateResult(snapshot, outcome) {
     elements.resultTitle.textContent = "打ち上げ成功";
     elements.resultMessage.textContent = "ロケットは安定した軌道へ到達しました。";
   } else {
-    elements.resultIcon.textContent = "!";
-    elements.resultKicker.textContent = "MISSION ABORTED";
-    elements.resultTitle.textContent = "打ち上げ失敗";
-    elements.resultMessage.textContent = getFailureMessage(snapshot.power, snapshot.stability);
+    elements.resultIcon.textContent = "★";
+    elements.resultKicker.textContent = "FLIGHT COMPLETE";
+    elements.resultTitle.textContent = "ナイスチャレンジ！";
+    elements.resultMessage.textContent = getChallengeMessage(snapshot.power, snapshot.stability);
   }
 }
 
@@ -234,18 +234,18 @@ function finishSuccess(snapshot, outcome) {
   }, prefersReducedMotion.matches ? 80 : 700);
 }
 
-function finishFailure(snapshot, outcome, finalTravel) {
-  setState("failure");
-  elements.missionStatus.textContent = "ABORTED";
-  elements.trajectoryLabel.textContent = "LOST";
-  elements.engineLabel.textContent = "OFFLINE";
+function finishChallenge(snapshot, outcome, finalTravel) {
+  setState("challenge");
+  elements.missionStatus.textContent = "SPARK!";
+  elements.trajectoryLabel.textContent = "RECORDED";
+  elements.engineLabel.textContent = "COMPLETE";
   elements.stage.style.setProperty("--explosion-bottom", `${6 + finalTravel * 104 + 6}%`);
-  elements.eventLabel.textContent = "BURST ALTITUDE";
+  elements.eventLabel.textContent = "SPARK ALTITUDE";
   elements.eventAltitude.textContent = formatAltitude(outcome.altitude);
   elements.explosion.classList.add("is-active");
 
   window.setTimeout(() => {
-    if (currentState !== "failure") return;
+    if (currentState !== "challenge") return;
     elements.flightEvent.classList.add("is-visible");
     elements.flightEvent.setAttribute("aria-hidden", "false");
   }, prefersReducedMotion.matches ? 20 : 260);
@@ -306,7 +306,7 @@ function launch() {
     if (outcome.success) {
       finishSuccess(snapshot, outcome);
     } else {
-      finishFailure(snapshot, outcome, travel);
+      finishChallenge(snapshot, outcome, travel);
     }
   }
 

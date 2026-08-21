@@ -1144,14 +1144,14 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   font-size: clamp(20px, 3vw, 28px);
 }
 
-.result-panel.is-failure .result-icon {
-  border-color: rgba(255, 94, 102, 0.5);
-  color: var(--red);
-  background: rgba(255, 94, 102, 0.1);
+.result-panel.is-challenge .result-icon {
+  border-color: rgba(255, 138, 76, 0.5);
+  color: var(--orange);
+  background: rgba(255, 138, 76, 0.1);
 }
 
-.result-panel.is-failure .eyebrow {
-  color: #ff9ba1;
+.result-panel.is-challenge .eyebrow {
+  color: #ffbd82;
 }
 
 .result-metrics {
@@ -1186,7 +1186,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   font-variant-numeric: tabular-nums;
 }
 
-.result-panel.is-failure .result-metrics dd {
+.result-panel.is-challenge .result-metrics dd {
   color: #ffb36f;
 }
 
@@ -1229,9 +1229,9 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   background: var(--lime);
 }
 
-.app-shell[data-state="failure"] .state-light {
-  background: var(--red);
-  box-shadow: 0 0 14px rgba(255, 94, 102, 0.75);
+.app-shell[data-state="challenge"] .state-light {
+  background: var(--orange);
+  box-shadow: 0 0 14px rgba(255, 138, 76, 0.75);
 }
 
 .app-shell[data-state="launching"] .rocket-vehicle {
@@ -1248,11 +1248,11 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 }
 
 .app-shell[data-state="success"] .rocket-vehicle,
-.app-shell[data-state="failure"] .rocket-vehicle {
+.app-shell[data-state="challenge"] .rocket-vehicle {
   pointer-events: none;
 }
 
-.app-shell[data-state="failure"] .rocket-vehicle {
+.app-shell[data-state="challenge"] .rocket-vehicle {
   opacity: 0 !important;
 }
 
