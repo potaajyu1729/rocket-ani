@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07111f">
   <title>ORBIT LAB — Rocket Launch Simulator</title>
-  <link rel="stylesheet" href="./styles.css">
-  <script src="./index.js" defer></script>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./script.js" defer></script>
 </head>
 <body>
   <div class="app-shell" id="app" data-state="idle">
@@ -74,6 +74,8 @@
             <strong><b id="event-altitude">0</b> km</strong>
           </div>
 
+          <div class="flight-path" aria-hidden="true"></div>
+
           <div class="rocket-vehicle" id="rocket" aria-label="ロケット">
             <div class="exhaust exhaust--left" aria-hidden="true"></div>
             <div class="exhaust exhaust--right" aria-hidden="true"></div>
@@ -118,7 +120,7 @@
 
         <div class="deck-bar deck-bar--bottom">
           <span>ENGINE <b id="engine-label">IDLE</b></span>
-          <span class="success-rule"><i aria-hidden="true"></i> SUCCESS: OUTPUT &amp; STABILITY ≥ 90%</span>
+          <span class="success-rule"><i aria-hidden="true"></i> ORBIT: OUTPUT ≥ 60% / STABILITY ≥ 80%</span>
         </div>
       </section>
 
@@ -141,7 +143,7 @@
               </div>
               <div class="range-shell">
                 <input id="power" type="range" min="0" max="100" value="82" aria-describedby="threshold-hint">
-                <span class="target-marker" aria-hidden="true"><i>90</i></span>
+                <span class="target-marker" style="--target: 60%" aria-hidden="true"><i>60</i></span>
               </div>
               <div class="range-labels" aria-hidden="true"><span>0</span><span>100</span></div>
             </div>
@@ -156,7 +158,7 @@
               </div>
               <div class="range-shell">
                 <input id="stability" type="range" min="0" max="100" value="78" aria-describedby="threshold-hint">
-                <span class="target-marker" aria-hidden="true"><i>90</i></span>
+                <span class="target-marker" style="--target: 80%" aria-hidden="true"><i>80</i></span>
               </div>
               <div class="range-labels" aria-hidden="true"><span>0</span><span>100</span></div>
             </div>
@@ -164,7 +166,7 @@
 
           <div class="threshold-hint" id="threshold-hint">
             <span class="threshold-icon" aria-hidden="true">◇</span>
-            <span><strong id="readiness-title">軌道投入まであと12</strong><small>両方90%以上で打ち上げ成功</small></span>
+            <span><strong id="readiness-title">安定性をあと2ポイント</strong><small>出力60%以上・安定性80%以上で軌道到達</small></span>
           </div>
 
           <button class="launch-button" id="launch-button" type="button">
@@ -178,8 +180,8 @@
           <div class="flight-copy">
             <div class="radar" aria-hidden="true"><i></i><span></span></div>
             <p class="eyebrow">LIVE TELEMETRY</p>
-            <h2>打ち上げ中</h2>
-            <p>機体を追跡しています。<br>パラメーターはロックされました。</p>
+            <h2 id="flight-title">垂直上昇中</h2>
+            <p id="flight-description">軌道到達コースを飛行中です。<br>パラメーターはロックされています。</p>
           </div>
           <div class="telemetry-card">
             <span>現在の高度</span>

@@ -226,6 +226,8 @@ input[type="range"] {
   --rocket-tilt: 0deg;
   --scene-travel: 0px;
   --explosion-bottom: 45%;
+  --path-height: 0px;
+  --path-angle: 0deg;
   isolation: isolate;
   position: relative;
   min-height: 0;
@@ -391,6 +393,40 @@ input[type="range"] {
   transform-origin: 50% 70%;
   filter: drop-shadow(0 13px 15px rgba(0, 0, 0, 0.38));
   will-change: left, bottom, transform, opacity;
+}
+
+.flight-path {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 6%;
+  width: 2px;
+  height: var(--path-height);
+  border-radius: 999px;
+  opacity: 0;
+  background: repeating-linear-gradient(
+    to top,
+    rgba(125, 232, 237, 0.08) 0 7px,
+    rgba(125, 232, 237, 0.62) 7px 11px
+  );
+  box-shadow: 0 0 9px rgba(125, 232, 237, 0.2);
+  transform: translateX(-50%) rotate(var(--path-angle));
+  transform-origin: 50% 100%;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.flight-path::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  transform: translateX(-50%);
 }
 
 .rocket {
@@ -891,7 +927,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   z-index: 1;
   top: 3px;
   bottom: 3px;
-  left: 90%;
+  left: var(--target, 80%);
   border-left: 1px dashed rgba(201, 247, 101, 0.68);
 }
 
@@ -1236,6 +1272,10 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 
 .app-shell[data-state="launching"] .rocket-vehicle {
   animation: rocket-vibration 0.11s linear infinite alternate;
+}
+
+.app-shell[data-state="launching"] .flight-path {
+  opacity: 0.58;
 }
 
 .app-shell[data-state="launching"] .flame--outer {

@@ -1,6 +1,7 @@
 "use strict";
 
-const SUCCESS_THRESHOLD = 90;
+const OUTPUT_THRESHOLD = 60;
+const STABILITY_THRESHOLD = 80;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const elements = {
@@ -37,6 +38,8 @@ const elements = {
   resultKicker: document.querySelector("#result-kicker"),
   resultTitle: document.querySelector("#result-title"),
   resultMessage: document.querySelector("#result-message"),
+  flightTitle: document.querySelector("#flight-title"),
+  flightDescription: document.querySelector("#flight-description"),
   resultPower: document.querySelector("#result-power"),
   resultStability: document.querySelector("#result-stability"),
   resultAltitude: document.querySelector("#result-altitude")
@@ -64,28 +67,45 @@ function formatAltitude(value) {
   return Math.max(0, Math.round(value)).toLocaleString("ja-JP");
 }
 
-function updateParameter(input, output, card) {
+function updateParameter(input, output, card, threshold) {
   const value = Number(input.value);
   output.textContent = `${value}%`;
   input.style.setProperty("--fill", `${value}%`);
-  card.classList.toggle("is-ready", value >= SUCCESS_THRESHOLD);
+  card.classList.toggle("is-ready", value >= threshold);
   return value;
 }
 
 function updateControls() {
-  const power = updateParameter(elements.power, elements.powerValue, elements.powerCard);
-  const stability = updateParameter(elements.stability, elements.stabilityValue, elements.stabilityCard);
-  const shortfall = Math.max(0, SUCCESS_THRESHOLD - Math.min(power, stability));
-  const ready = shortfall === 0;
+  const power = updateParameter(
+    elements.power,
+    elements.powerValue,
+    elements.powerCard,
+    OUTPUT_THRESHOLD
+  );
+  const stability = updateParameter(
+    elements.stability,
+    elements.stabilityValue,
+    elements.stabilityCard,
+    STABILITY_THRESHOLD
+  );
+  const powerSteps = Math.max(0, OUTPUT_THRESHOLD - power);
+  const stabilitySteps = Math.max(0, STABILITY_THRESHOLD - stability);
+  const ready = powerSteps === 0 && stabilitySteps === 0;
 
   elements.thresholdHint.classList.toggle("is-ready", ready);
-  elements.readinessTitle.textContent = ready
-    ? "軌道投入の準備完了"
-    : `軌道投入まであと${shortfall}`;
+  if (ready) {
+    elements.readinessTitle.textContent = "軌道投入の準備完了";
+  } else if (powerSteps > 0 && stabilitySteps > 0) {
+    elements.readinessTitle.textContent = `出力あと${powerSteps}・安定性あと${stabilitySteps}`;
+  } else if (powerSteps > 0) {
+    elements.readinessTitle.textContent = `出力強度をあと${powerSteps}ポイント`;
+  } else {
+    elements.readinessTitle.textContent = `安定性をあと${stabilitySteps}ポイント`;
+  }
 }
 
 function calculateOutcome(power, stability) {
-  const success = power >= SUCCESS_THRESHOLD && stability >= SUCCESS_THRESHOLD;
+  const success = power >= OUTPUT_THRESHOLD && stability >= STABILITY_THRESHOLD;
 
   if (success) {
     return {
@@ -164,21 +184,34 @@ function resetEffects() {
   elements.stage.style.setProperty("--rocket-tilt", "0deg");
   elements.stage.style.setProperty("--scene-travel", "0px");
   elements.stage.style.setProperty("--explosion-bottom", "45%");
+  elements.stage.style.setProperty("--path-height", "0px");
+  elements.stage.style.setProperty("--path-angle", "0deg");
   elements.rocket.style.opacity = "1";
   elements.telemetryProgress.style.width = "0%";
 }
 
-function updateFlightVisual(travel, altitude, stability, elapsed) {
+function updateFlightVisual(travel, altitude, stability, elapsed, routeProgress) {
   const bottom = 6 + travel * 104;
-  const instability = (100 - stability) / 100;
-  const driftAmplitude = 2 + instability * 8;
-  const drift = Math.sin(elapsed / 150) * driftAmplitude * Math.sin(Math.PI * travel);
-  const tilt = Math.sin(elapsed / 115) * instability * 3.5;
+  const diagonalStrength = clamp((STABILITY_THRESHOLD - stability) / 50, 0, 1);
+  const stageWidth = elements.stage.clientWidth;
+  const stageHeight = elements.stage.clientHeight;
+  const diagonalDrift = stageWidth * 0.3 * diagonalStrength * Math.pow(routeProgress, 1.2);
+  const flightWobble = Math.sin(elapsed / 130) * (1 + diagonalStrength * 7) * Math.sin(Math.PI * routeProgress);
+  const drift = diagonalDrift + flightWobble;
+  const tilt = diagonalStrength * 18 * Math.pow(routeProgress, 0.7)
+    + Math.sin(elapsed / 105) * diagonalStrength * 3;
+  const verticalDistance = travel * stageHeight * 1.04;
+  const pathHeight = Math.hypot(verticalDistance, diagonalDrift);
+  const pathAngle = verticalDistance > 0
+    ? Math.atan2(diagonalDrift, verticalDistance) * (180 / Math.PI)
+    : 0;
 
   elements.stage.style.setProperty("--rocket-bottom", `${bottom}%`);
   elements.stage.style.setProperty("--rocket-drift", `${drift.toFixed(2)}px`);
   elements.stage.style.setProperty("--rocket-tilt", `${tilt.toFixed(2)}deg`);
   elements.stage.style.setProperty("--scene-travel", `${Math.min(130, travel * 130).toFixed(1)}px`);
+  elements.stage.style.setProperty("--path-height", `${pathHeight.toFixed(1)}px`);
+  elements.stage.style.setProperty("--path-angle", `${pathAngle.toFixed(2)}deg`);
   elements.telemetryProgress.style.width = `${Math.min(100, travel * 100)}%`;
   setAltitude(altitude);
 
@@ -188,15 +221,15 @@ function updateFlightVisual(travel, altitude, stability, elapsed) {
 }
 
 function getChallengeMessage(power, stability) {
-  if (power < SUCCESS_THRESHOLD && stability < SUCCESS_THRESHOLD) {
-    return "空いっぱいにカラフルなスパークが広がりました。両方を90%以上にすると軌道到達コースへ進めます。";
+  if (power < OUTPUT_THRESHOLD && stability < STABILITY_THRESHOLD) {
+    return "空いっぱいにカラフルなスパークが広がりました。出力60%以上・安定性80%以上で軌道到達コースへ進めます。";
   }
 
-  if (power < SUCCESS_THRESHOLD) {
-    return "カラフルなスパークを記録しました。出力強度を90%以上にすると軌道到達コースへ進めます。";
+  if (power < OUTPUT_THRESHOLD) {
+    return "カラフルなスパークを記録しました。出力強度を60%以上にすると軌道到達コースへ進めます。";
   }
 
-  return "カラフルなスパークを記録しました。安定性を90%以上にすると軌道到達コースへ進めます。";
+  return "カラフルなスパークを記録しました。安定性を80%以上にすると垂直の軌道到達コースへ進めます。";
 }
 
 function populateResult(snapshot, outcome) {
@@ -278,8 +311,13 @@ function launch() {
   elements.stability.disabled = true;
   elements.launchButton.disabled = true;
   elements.missionStatus.textContent = "LIFTOFF";
-  elements.trajectoryLabel.textContent = "TRACKING";
+  const followsVerticalCourse = snapshot.stability >= STABILITY_THRESHOLD;
+  elements.trajectoryLabel.textContent = followsVerticalCourse ? "VERTICAL" : "DIAGONAL";
   elements.engineLabel.textContent = "BURNING";
+  elements.flightTitle.textContent = followsVerticalCourse ? "垂直上昇中" : "斜め上昇中";
+  elements.flightDescription.innerHTML = followsVerticalCourse
+    ? "軌道到達コースを飛行中です。<br>パラメーターはロックされています。"
+    : "ダイナミックな斜め軌道を飛行中です。<br>安定性80%以上で垂直コースが開きます。";
   elements.flightEvent.classList.remove("is-visible");
   elements.explosion.classList.remove("is-active");
   elements.celebration.classList.remove("is-active");
@@ -295,7 +333,7 @@ function launch() {
     const travel = outcome.success ? eased : outcome.travel * eased;
     const currentAltitude = outcome.altitude * eased;
 
-    updateFlightVisual(travel, currentAltitude, snapshot.stability, elapsed);
+    updateFlightVisual(travel, currentAltitude, snapshot.stability, elapsed, eased);
 
     if (timeProgress < 1) {
       animationFrame = window.requestAnimationFrame(animate);
