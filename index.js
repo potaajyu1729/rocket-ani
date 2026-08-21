@@ -8,6 +8,8 @@ const elements = {
   app: document.querySelector("#app"),
   stage: document.querySelector("#flight-stage"),
   rocket: document.querySelector("#rocket"),
+  boardingCrew: document.querySelector("#boarding-crew"),
+  crewCharacters: [...document.querySelectorAll(".crew-character")],
   explosion: document.querySelector("#explosion"),
   debris: document.querySelector("#debris"),
   celebration: document.querySelector("#celebration"),
@@ -47,6 +49,8 @@ const elements = {
 
 let animationFrame = 0;
 let resultTimer = 0;
+let boardingTimer = 0;
+let crewProgressTimers = [];
 let currentState = "idle";
 
 function clamp(value, min, max) {
@@ -144,6 +148,58 @@ function setAltitude(value) {
   elements.panelAltitude.textContent = formatted;
 }
 
+function clearCrewProgressTimers() {
+  crewProgressTimers.forEach((timer) => window.clearTimeout(timer));
+  crewProgressTimers = [];
+}
+
+function stopBoardingSequence() {
+  window.clearTimeout(boardingTimer);
+  boardingTimer = 0;
+  clearCrewProgressTimers();
+  elements.boardingCrew.classList.remove("is-boarding");
+}
+
+function prepareCrewBoarding() {
+  const stageRect = elements.stage.getBoundingClientRect();
+  const rocketRect = elements.rocket.getBoundingClientRect();
+  const stageWidth = stageRect.width;
+  const startOffsets = [-0.32, -0.18, 0.18, 0.32];
+  const delayStep = prefersReducedMotion.matches ? 0.065 : 0.55;
+
+  elements.crewCharacters.forEach((character, index) => {
+    const characterRect = character.getBoundingClientRect();
+    const startX = stageWidth * startOffsets[index];
+    const targetWindowY = rocketRect.top - stageRect.top + rocketRect.height * 0.32;
+    const characterCenterY = stageRect.height - stageRect.height * 0.06 - characterRect.height * 0.5;
+    const boardY = targetWindowY - characterCenterY;
+    const lean = startX < 0 ? 6 : -6;
+
+    character.style.setProperty("--crew-start-x", `${startX.toFixed(1)}px`);
+    character.style.setProperty("--crew-mid-x", `${(startX * 0.46).toFixed(1)}px`);
+    character.style.setProperty("--crew-board-y", `${boardY.toFixed(1)}px`);
+    character.style.setProperty("--crew-delay", `${(index * delayStep).toFixed(3)}s`);
+    character.style.setProperty("--crew-lean", `${lean}deg`);
+    character.style.setProperty("--crew-lean-back", `${lean * -1}deg`);
+  });
+
+  elements.boardingCrew.classList.remove("is-boarding");
+  void elements.boardingCrew.offsetWidth;
+  elements.boardingCrew.classList.add("is-boarding");
+
+  elements.crewCharacters.forEach((character, index) => {
+    const progressDelay = prefersReducedMotion.matches
+      ? 15 + index * 65
+      : 900 + index * 550;
+    const timer = window.setTimeout(() => {
+      if (currentState !== "boarding") return;
+      elements.trajectoryLabel.textContent = `CREW ${index + 1}/4`;
+      elements.telemetryProgress.style.width = `${(index + 1) * 25}%`;
+    }, progressDelay);
+    crewProgressTimers.push(timer);
+  });
+}
+
 function createEffectPieces() {
   const debrisColors = ["#ff8a4c", "#ffdd75", "#ff5e66", "#cbd8df", "#7de8ed"];
   const confettiColors = ["#c9f765", "#7de8ed", "#ff8a4c", "#f3f8f5", "#ff6d83"];
@@ -174,6 +230,7 @@ function createEffectPieces() {
 }
 
 function resetEffects() {
+  stopBoardingSequence();
   elements.explosion.classList.remove("is-active");
   elements.celebration.classList.remove("is-active");
   elements.celebration.setAttribute("aria-hidden", "true");
@@ -289,27 +346,20 @@ function finishChallenge(snapshot, outcome, finalTravel) {
   }, prefersReducedMotion.matches ? 90 : 850);
 }
 
-function launch() {
-  if (currentState !== "idle") return;
+function startFlight(snapshot, outcome) {
+  if (currentState !== "boarding") return;
 
-  const snapshot = {
-    power: Number(elements.power.value),
-    stability: Number(elements.stability.value)
-  };
-  const outcome = calculateOutcome(snapshot.power, snapshot.stability);
   const duration = prefersReducedMotion.matches
     ? 350
     : outcome.success
       ? 4300
       : 2350 + outcome.travel * 1500;
 
-  window.clearTimeout(resultTimer);
-  window.cancelAnimationFrame(animationFrame);
+  window.clearTimeout(boardingTimer);
+  boardingTimer = 0;
+  clearCrewProgressTimers();
+  elements.boardingCrew.classList.remove("is-boarding");
   setState("launching");
-  setPanels("flight");
-  elements.power.disabled = true;
-  elements.stability.disabled = true;
-  elements.launchButton.disabled = true;
   elements.missionStatus.textContent = "LIFTOFF";
   const followsVerticalCourse = snapshot.stability >= STABILITY_THRESHOLD;
   elements.trajectoryLabel.textContent = followsVerticalCourse ? "VERTICAL" : "DIAGONAL";
@@ -318,11 +368,7 @@ function launch() {
   elements.flightDescription.innerHTML = followsVerticalCourse
     ? "軌道到達コースを飛行中です。<br>パラメーターはロックされています。"
     : "ダイナミックな斜め軌道を飛行中です。<br>安定性80%以上で垂直コースが開きます。";
-  elements.flightEvent.classList.remove("is-visible");
-  elements.explosion.classList.remove("is-active");
-  elements.celebration.classList.remove("is-active");
-  elements.rocket.style.opacity = "1";
-  setAltitude(0);
+  elements.telemetryProgress.style.width = "0%";
 
   const startedAt = performance.now();
 
@@ -351,9 +397,46 @@ function launch() {
   animationFrame = window.requestAnimationFrame(animate);
 }
 
+function launch() {
+  if (currentState !== "idle") return;
+
+  const snapshot = {
+    power: Number(elements.power.value),
+    stability: Number(elements.stability.value)
+  };
+  const outcome = calculateOutcome(snapshot.power, snapshot.stability);
+  const boardingDuration = prefersReducedMotion.matches ? 320 : 2850;
+
+  window.clearTimeout(resultTimer);
+  window.cancelAnimationFrame(animationFrame);
+  resetEffects();
+  setState("boarding");
+  setPanels("flight");
+  elements.power.disabled = true;
+  elements.stability.disabled = true;
+  elements.launchButton.disabled = true;
+  elements.missionStatus.textContent = "BOARDING";
+  elements.trajectoryLabel.textContent = "CREW 0/4";
+  elements.engineLabel.textContent = "READY";
+  elements.flightTitle.textContent = "クルー搭乗中";
+  elements.flightDescription.innerHTML = "赤・青・黄・緑のクルーが順番に乗り込みます。<br>まもなく打ち上げです。";
+  elements.flightEvent.classList.remove("is-visible");
+  elements.explosion.classList.remove("is-active");
+  elements.celebration.classList.remove("is-active");
+  elements.rocket.style.opacity = "1";
+  elements.telemetryProgress.style.width = "0%";
+  setAltitude(0);
+  prepareCrewBoarding();
+
+  boardingTimer = window.setTimeout(() => {
+    startFlight(snapshot, outcome);
+  }, boardingDuration);
+}
+
 function resetMission() {
   window.cancelAnimationFrame(animationFrame);
   window.clearTimeout(resultTimer);
+  stopBoardingSequence();
   setState("idle");
   setPanels("setup");
   resetEffects();
